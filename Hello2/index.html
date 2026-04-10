@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Hello World | Modern Web Showcase</title>
+    <meta name="description" content="A stunning Hello World experience crafted with modern frontend technologies.">
+    
+    <!-- Security: Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'unsafe-inline'; connect-src 'self';">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --accent: #f093fb;
+            --bg-dark: #0f172a;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Background Layers */
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            filter: blur(80px);
+            opacity: 0.4;
+        }
+
+        #cursor-glow {
+            position: fixed;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(79, 172, 254, 0.1) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Particle Canvas */
+        #text-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            cursor: pointer;
+        }
+
+        /* UI Overlays */
+        .ui-layer {
+            position: relative;
+            z-index: 20;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            font-weight: 300;
+            color: #94a3b8;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-top: 15rem; /* Space for the particle text */
+            animation: fadeIn 2s ease-out;
+            pointer-events: auto;
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .version-badge {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: 2px;
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 2rem;
+            left: 2rem;
+            text-align: left;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1.5px;
+            line-height: 1.6;
+            font-weight: 400;
+            z-index: 30;
+            padding: 1rem;
+            border-left: 2px solid var(--primary);
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+        }
+
+        .info-panel span {
+            display: block;
+            text-transform: uppercase;
+        }
+
+        .info-panel strong {
+            color: white;
+            font-weight: 700;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="text-canvas"></canvas>
+    <div id="cursor-glow"></div>
+
+    <div class="ui-layer">
+        <p class="subtitle">Interactive Particle Universe</p>
+    </div>
+
+    <div class="info-panel">
+        <span id="live-date">Loading...</span>
+        <span id="live-time">00:00:00</span>
+        <span id="live-location">Locating...</span>
+    </div>
+
+    <div class="version-badge">VER 3.0</div>
+
+    <div class="hint">Click or Move to interact with the void</div>
+
+    <script>
+        /** BACKGROUND ANIMATION **/
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let width, height, blobs = [];
+
+        function initBG() {
+            width = bgCanvas.width = window.innerWidth;
+            height = bgCanvas.height = window.innerHeight;
+            blobs = [];
+            for(let i = 0; i < 6; i++) {
+                blobs.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    r: 300 + Math.random() * 400,
+                    vx: (Math.random() - 0.5) * 1,
+                    vy: (Math.random() - 0.5) * 1,
+                    color: i % 3 === 0 ? '#4facfe' : (i % 3 === 1 ? '#00f2fe' : '#f093fb')
+                });
+            }
+        }
+
+        function animateBG() {
+            bgCtx.clearRect(0, 0, width, height);
+            blobs.forEach(blob => {
+                blob.x += blob.vx;
+                blob.y += blob.vy;
+                if (blob.x < -blob.r) blob.x = width + blob.r;
+                if (blob.x > width + blob.r) blob.x = -blob.r;
+                if (blob.y < -blob.r) blob.y = height + blob.r;
+                if (blob.y > height + blob.r) blob.y = -blob.r;
+                bgCtx.beginPath();
+                bgCtx.arc(blob.x, blob.y, blob.r, 0, Math.PI * 2);
+                bgCtx.fillStyle = blob.color;
+                bgCtx.fill();
+            });
+            requestAnimationFrame(animateBG);
+        }
+
+        /** PARTICLE TEXT SYSTEM **/
+        const canvas = document.getElementById('text-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let particles = [];
+        const mouse = { x: null, y: null, radius: 150 };
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.x;
+            mouse.y = e.y;
+            document.getElementById('cursor-glow').style.left = e.x + 'px';
+            document.getElementById('cursor-glow').style.top = e.y + 'px';
+        });
+
+        window.addEventListener('mousedown', () => {
+            mouse.radius = 400; // Explode more on click
+        });
+
+        window.addEventListener('mouseup', () => {
+            mouse.radius = 150;
+        });
+
+        class Particle {
+            constructor(x, y) {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.destX = x;
+                this.destY = y;
+                this.size = 1.5;
+                this.vx = 0;
+                this.vy = 0;
+                this.accel = 0.05;
+                this.friction = 0.95;
+                this.color = '#ffffff';
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            update() {
+                // Interactive physics
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                let forceX = dx / distance;
+                let forceY = dy / distance;
+
+                if (distance < mouse.radius) {
+                    let force = (mouse.radius - distance) / mouse.radius;
+                    this.vx -= forceX * force * 5;
+                    this.vy -= forceY * force * 5;
+                }
+
+                // Return to home position
+                this.vx += (this.destX - this.x) * this.accel;
+                this.vy += (this.destY - this.y) * this.accel;
+
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+
+        function initParticles() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particles = [];
+
+            // Render text on internal state to sample coordinates
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 120px Outfit';
+            ctx.textAlign = 'center';
+            ctx.fillText('HELLO WORLD', canvas.width / 2, canvas.height / 2);
+            
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Sampling gap
+            const step = 4;
+            for (let y = 0; y < canvas.height; y += step) {
+                for (let x = 0; x < canvas.width; x += step) {
+                    if (data.data[(y * 4 * data.width) + (x * 4) + 3] > 128) {
+                        particles.push(new Particle(x, y));
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            initBG();
+            initParticles();
+        });
+
+        initBG();
+        animateBG();
+        initParticles();
+        animate();
+
+        /** REAL-TIME INFO SYSTEM **/
+        function updateTime() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '');
+            const timeStr = now.toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            // Using safe update method
+            const dateEl = document.getElementById('live-date');
+            const timeEl = document.getElementById('live-time');
+            
+            dateEl.textContent = `DATE: `;
+            const dVal = document.createElement('strong');
+            dVal.textContent = dateStr;
+            dateEl.appendChild(dVal);
+
+            timeEl.textContent = `TIME: `;
+            const tVal = document.createElement('strong');
+            tVal.textContent = timeStr;
+            timeEl.appendChild(tVal);
+        }
+
+        function updateLocation() {
+            const locEl = document.getElementById('live-location');
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const lat = pos.coords.latitude.toFixed(4);
+                        const lon = pos.coords.longitude.toFixed(4);
+                        locEl.textContent = `COORD: `;
+                        const cVal = document.createElement('strong');
+                        cVal.textContent = `${lat}, ${lon}`;
+                        locEl.appendChild(cVal);
+                    },
+                    (err) => {
+                        locEl.textContent = `COORD: `;
+                        const eVal = document.createElement('strong');
+                        eVal.textContent = `ACCESS DENIED`;
+                        locEl.appendChild(eVal);
+                    }
+                );
+            } else {
+                locEl.textContent = `COORD: `;
+                const sVal = document.createElement('strong');
+                sVal.textContent = `NOT SUPPORTED`;
+                locEl.appendChild(sVal);
+            }
+        }
+
+        setInterval(updateTime, 1000);
+        updateTime();
+        updateLocation();
+    </script>
+</body>
+</html>
