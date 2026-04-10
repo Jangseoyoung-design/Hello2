@@ -1,0 +1,10 @@
+.DS_Store
+.vscode/
+node_modules/
+dist/
+*.log
+
+# Secrets and local tools
+password.txt
+bin/
+gh.tar.gz
